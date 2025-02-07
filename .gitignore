@@ -6,14 +6,14 @@ interface/build/
 interface/.env*.local
 
 # Foundry
-contracts/cache/
-contracts/out/
-contracts/lib/
-contracts/.env
+contract/cache/
+contract/out/
+contract/lib/
+contract/.env
 
 # Foundry broadcast logs
-/contracts/broadcast/*/31337/
-/contracts/broadcast/**/dry-run/
+/contract/broadcast/*/31337/
+/contract/broadcast/**/dry-run/
 
 # Keep broadcast directory itself
 !/contracts/broadcast
