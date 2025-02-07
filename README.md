@@ -14,7 +14,7 @@ IdealDAO is based on two contracts: [Proposals.sol](/contract/src/Proposals.sol)
 Test the contracts with [forge](https://book.getfoundry.sh/):
 
 ```bash
-cd contracts
+cd contract
 forge install --no-git foundry-rs/forge-std
 forge test
 ```
