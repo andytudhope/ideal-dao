@@ -7,7 +7,7 @@ Blockchains, used intelligently, do two things:
 1. Move money freely.
 2. Create programs that enable more people to participate in the additional value that is created by virtue of money moving freely.
 
-IdealDAO is based on two contracts: [Proposals.sol](/contracts/src/Proposals.sol) and [DEAL.sol](/contracts/src/DEAL.sol) that do exactly that, and only that.
+IdealDAO is based on two contracts: [Proposals.sol](/contract/src/Proposals.sol) and [DEAL.sol](/contract/src/DEAL.sol) that do exactly that, and only that.
 
 ## Contracts
 
