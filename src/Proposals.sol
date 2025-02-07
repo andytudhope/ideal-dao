@@ -5,7 +5,7 @@ interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
 }
 
-contract IdealDAO {
+contract Proposals {
     struct Proposal {
         uint256 dealRequired;      // Amount of DEAL tokens required
         address payableAddress;    // Address to receive the DEAL tokens
