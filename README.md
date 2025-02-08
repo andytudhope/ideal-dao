@@ -19,6 +19,16 @@ forge install --no-git foundry-rs/forge-std
 forge test
 ```
 
+If you'd like to run the frontend, you'll need to start a local network and deploy the contracts. 
+
+(You'll need to copy the contents of env.example to .env.local and insert your own values in order for Arweave uploads and ENS name resolution to work).
+
+Run `anvil` in one terminal and, in another terminal:
+
+```bash
+forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545
+```
+
 ## Interface
 
 Run the Nextjs web interface as below:

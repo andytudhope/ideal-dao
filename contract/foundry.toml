@@ -2,5 +2,11 @@
 src = "src"
 out = "out"
 libs = ["lib"]
+extra-output = ["abi", "metadata"]
+extra-output-files = ["abi", "metadata"]
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+# Grant explicit write permissions
+fs_permissions = [
+    { access = "read", path = "out/" },
+    { access = "read-write", path = "../interface/src/deployments/" }
+]
