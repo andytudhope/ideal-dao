@@ -1,10 +1,11 @@
 "use client"
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
-import { ArrowDown, Loader2, Check } from 'lucide-react';
+import { ArrowDown, Loader2, Check, ChevronDown } from 'lucide-react';
 import { 
   calculateMintAmount, 
   calculateBurnAmount, 
+  checkContractReserves,
   checkBalance,
   mintDeal,
   burnDeal,
@@ -14,71 +15,146 @@ import { getEtherscanUrl } from '@/utils/contracts';
 
 type Mode = 'mint' | 'burn';
 type TxStatus = 'idle' | 'pending' | 'confirmed' | 'failed';
+type TokenType = 'usds' | 'usdc' | 'usdt';
+
+const TOKEN_INFO = {
+  usds: {
+    name: 'USDS',
+    logo: '/usds-logo.svg',
+    decimals: 18
+  },
+  usdc: {
+    name: 'USDC',
+    logo: '/usdc-logo.svg',
+    decimals: 6
+  },
+  usdt: {
+    name: 'USDT',
+    logo: '/usdt-logo.svg',
+    decimals: 6
+  }
+} as const;
 
 export default function DealPage() {
   const { address, isConnected, connect } = useWallet();
   const [mode, setMode] = useState<Mode>('mint');
+  const [selectedToken, setSelectedToken] = useState<TokenType>('usds');
   const [inputAmount, setInputAmount] = useState<string>('');
   const [outputAmount, setOutputAmount] = useState<string>('');
   const [isCalculating, setIsCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contractReserves, setContractReserves] = useState<string>('0');
   const [txStatus, setTxStatus] = useState<TxStatus>('idle');
   const [txHash, setTxHash] = useState<string | null>(null);
   const [balance, setBalance] = useState<string>('0');
+  const [isTokenListOpen, setIsTokenListOpen] = useState(false);
 
-  // Check balance when connected
+  // Close token list when clicking outside
   useEffect(() => {
-    if (isConnected && address) {
-      const fetchBalance = async () => {
-        const result = await checkBalance(mode === 'mint' ? 'dai' : 'deal', address);
-        if (result.error) {
-          setError(result.error);
-        } else {
-          setBalance(result.balance);
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.token-selector')) {
+        setIsTokenListOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+// Load both balance and reserves
+useEffect(() => {
+    if (!isConnected || !address) return;
+  
+    const loadData = async () => {
+      // Clear any existing errors
+      setError(null);
+  
+      // Load user's balance
+      const balanceResult = await checkBalance(
+        mode === 'mint' ? selectedToken : 'deal',
+        address
+      );
+      if (balanceResult.error) {
+        setError(balanceResult.error);
+        return;
+      }
+      setBalance(balanceResult.balance);
+  
+      // Load contract reserves if in burn mode
+      if (mode === 'burn') {
+        const reservesResult = await checkContractReserves(selectedToken);
+        if (reservesResult.error) {
+          setError(reservesResult.error);
+          return;
         }
-      };
-      fetchBalance();
-    }
-  }, [isConnected, address, mode]);
-
-  // Calculate output with debounce
+        setContractReserves(reservesResult.available);
+      }
+    };
+  
+    loadData();
+  }, [isConnected, address, mode, selectedToken]);
+  
+  // Calculations for validations
   useEffect(() => {
+    // Reset output if no input
     if (!inputAmount || isNaN(Number(inputAmount))) {
       setOutputAmount('');
       setError(null);
       return;
     }
-
+  
+    // Check user's balance
+    if (Number(inputAmount) > Number(balance)) {
+      setError('Amount exceeds your balance');
+      setOutputAmount('');
+      return;
+    }
+  
     const calculate = async () => {
       setIsCalculating(true);
       setError(null);
-      
+  
       try {
-        const result = mode === 'mint' 
-          ? await calculateMintAmount(inputAmount)
-          : await calculateBurnAmount(inputAmount);
-        
+        const result = mode === 'mint'
+          ? await calculateMintAmount(inputAmount, selectedToken)
+          : await calculateBurnAmount(inputAmount, selectedToken);
+  
         if (result.error) {
-          setError(result.error);
-          setOutputAmount('');
-        } else {
-          setOutputAmount(result.amount);
+          throw new Error(result.error);
         }
+  
+        // For burn mode, validate against contract reserves
+        if (mode === 'burn' && Number(result.amount) > Number(contractReserves)) {
+          throw new Error('reserve_exceeded');
+        }
+  
+        setOutputAmount(result.amount);
       } catch (err) {
         console.error('Calculation error:', err);
-        setError('Failed to calculate amount');
         setOutputAmount('');
+        
+        if (err instanceof Error && err.message === 'reserve_exceeded') {
+          setError('You cannot redeem that much DEAL for this specific collateral. Pick another and try again.');
+        } else {
+          setError('Failed to calculate amount');
+        }
       } finally {
         setIsCalculating(false);
       }
     };
-
+  
     const timeoutId = setTimeout(calculate, 500);
     return () => clearTimeout(timeoutId);
-  }, [inputAmount, mode]);
+  }, [inputAmount, mode, selectedToken, balance, contractReserves]);
 
   const handleSubmit = async () => {
     if (!isConnected || !inputAmount) return;
+
+    if (Number(inputAmount) > Number(balance)) {
+        setError('Amount exceeds your balance');
+        return;
+    }
     
     setTxStatus('pending');
     setError(null);
@@ -86,8 +162,8 @@ export default function DealPage() {
 
     try {
       const result: TransactionResult = mode === 'mint'
-        ? await mintDeal(inputAmount)
-        : await burnDeal(inputAmount);
+        ? await mintDeal(inputAmount, selectedToken)
+        : await burnDeal(inputAmount, selectedToken);
 
       if (result.success && result.hash) {
         setTxHash(result.hash);
@@ -97,18 +173,29 @@ export default function DealPage() {
         
         // Refresh balance
         if (address) {
-            const balanceResult = await checkBalance(mode === 'mint' ? 'dai' : 'deal', address);
-            if (!balanceResult.error) {
-              setBalance(balanceResult.balance);
-            }
+          const balanceResult = await checkBalance(
+            mode === 'mint' ? selectedToken : 'deal',
+            address
+          );
+          if (!balanceResult.error) {
+            setBalance(balanceResult.balance);
+          }
         }
       } else {
         throw new Error(result.error || 'Transaction failed');
       }
     } catch (err) {
-      console.error('Transaction failed:', err);
-      setError(err instanceof Error ? err.message : 'Transaction failed');
-      setTxStatus('failed');
+        console.error('Transaction failed:', err);
+        if (mode === 'burn' && typeof err === 'object' && err !== null && 'toString' in err && err.toString().includes('insufficient liquidity')) {
+          setError('You need to redeem a different kind of collateral. Please select another option and try again.');
+        } else {
+          setError(
+            typeof err === 'object' && err !== null && 'message' in err && typeof err.message === 'string' 
+              ? err.message 
+              : 'Transaction failed'
+          );
+        }
+        setTxStatus('failed');
     }
   };
 
@@ -120,6 +207,57 @@ export default function DealPage() {
     setTxStatus('idle');
     setTxHash(null);
   };
+
+  const TokenSelector = () => (
+    <div className="relative token-selector">
+      <button
+        onClick={() => setIsTokenListOpen(!isTokenListOpen)}
+        className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm"
+        type="button"
+      >
+        <img 
+          src={TOKEN_INFO[selectedToken].logo}
+          alt={TOKEN_INFO[selectedToken].name}
+          className="w-5 h-5 mr-2"
+        />
+        <span>{TOKEN_INFO[selectedToken].name}</span>
+        <ChevronDown className="w-4 h-4 ml-2" />
+      </button>
+      
+      {isTokenListOpen && (
+        <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg py-1 z-20">
+          {Object.entries(TOKEN_INFO).map(([value, info]) => (
+            <button
+              key={value}
+              className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center"
+              onClick={() => {
+                setSelectedToken(value as TokenType);
+                setIsTokenListOpen(false);
+              }}
+            >
+              <img 
+                src={info.logo}
+                alt={info.name}
+                className="w-5 h-5 mr-2"
+              />
+              <span>{info.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const DealDisplay = () => (
+    <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
+      <img 
+        src="/logo.png"
+        alt="DEAL"
+        className="w-5 h-5 mr-2"
+      />
+      <span>DEAL</span>
+    </div>
+  );
 
   return (
     <div className="max-w-md mx-auto p-6">
@@ -147,7 +285,7 @@ export default function DealPage() {
         {/* Balance Display */}
         {isConnected && (
           <div className="mb-2 text-sm text-gray-500">
-            Balance: {Number(balance).toFixed(2)} {mode === 'mint' ? 'DAI' : 'DEAL'}
+            Balance: {Number(balance).toFixed(2)} {mode === 'mint' ? TOKEN_INFO[selectedToken].name : 'DEAL'}
           </div>
         )}
 
@@ -159,24 +297,36 @@ export default function DealPage() {
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <input
-              type="number"
-              value={inputAmount}
-              onChange={(e) => setInputAmount(e.target.value)}
-              placeholder="0"
-              min="0"
-              step="any"
-              disabled={txStatus === 'pending'}
-              className="bg-transparent text-2xl outline-none w-full disabled:cursor-not-allowed"
-            />
-            <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
-                <img 
-                    src={mode === 'mint' ? "/dai-logo.svg" : "/logo.png"} 
-                    alt={mode === 'mint' ? "DAI" : "DEAL"} 
-                    className="w-5 h-5 mr-2" 
-                />
-              <span>{mode === 'mint' ? 'DAI' : 'DEAL'}</span>
+            <div className="flex flex-1 items-center">
+              <input
+                type="number"
+                value={inputAmount}
+                onChange={(e) => {
+                    const newAmount = e.target.value;
+                    if (Number(newAmount) > Number(balance)) {
+                      setError('Amount exceeds your balance');
+                    } else {
+                      setError(null);
+                    }
+                    setInputAmount(newAmount);
+                  }}
+                placeholder="0"
+                min="0"
+                max={balance}
+                step="any"
+                disabled={txStatus === 'pending'}
+                className="bg-transparent text-2xl outline-none w-full disabled:cursor-not-allowed [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              {isConnected && (
+                <button
+                  onClick={() => setInputAmount(balance)}
+                  className="text-sm text-blue-600 hover:text-blue-800 px-2 py-1 rounded"
+                >
+                  max
+                </button>
+              )}
             </div>
+            {mode === 'mint' ? <TokenSelector /> : <DealDisplay />}
           </div>
         </div>
 
@@ -193,6 +343,11 @@ export default function DealPage() {
             <span className="text-sm text-gray-500">
               {mode === 'mint' ? 'You receive' : 'You receive'}
             </span>
+            {mode === 'burn' && (
+              <span className="text-sm text-gray-500">
+                Available: {Number(contractReserves).toFixed(TOKEN_INFO[selectedToken].decimals === 18 ? 2 : 6)} {TOKEN_INFO[selectedToken].name}
+              </span>
+            )}
           </div>
           <div className="flex justify-between items-center">
             <div className="flex items-center flex-1">
@@ -201,20 +356,13 @@ export default function DealPage() {
                 value={outputAmount}
                 readOnly
                 placeholder="0"
-                className="bg-transparent text-2xl outline-none w-full"
+                className="bg-transparent text-2xl outline-none w-full disabled:cursor-not-allowed [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               {isCalculating && (
                 <Loader2 className="w-5 h-5 text-blue-500 animate-spin ml-2" />
               )}
             </div>
-            <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm">
-                <img 
-                    src={mode === 'mint' ? "/logo.png" : "/dai-logo.svg"} 
-                    alt={mode === 'mint' ? "DEAL" : "DAI"} 
-                    className="w-5 h-5 mr-2" 
-                />
-              <span>{mode === 'mint' ? 'DEAL' : 'DAI'}</span>
-            </div>
+            {mode === 'mint' ? <DealDisplay /> : <TokenSelector />}
           </div>
         </div>
 

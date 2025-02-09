@@ -1,5 +1,7 @@
 interface DeploymentInfo {
-    dai: string;
+    usds: string;
+    usdc: string;
+    usdt: string;
     deal: string;
     proposals: string;
     chainId: number;

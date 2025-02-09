@@ -4,7 +4,9 @@ import { getDeployments } from './deployments';
 export function getContractAddresses() {
   const deployments = getDeployments();
   return {
-    dai: deployments.dai,
+    usds: deployments.usds,
+    usdc: deployments.usdc,
+    usdt: deployments.usdt,
     deal: deployments.deal,
     proposals: deployments.proposals
   };
