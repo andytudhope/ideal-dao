@@ -4,26 +4,26 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "../src/DEAL.sol";
 import "../src/Proposals.sol";
-import "../test/mocks/MockERC20.sol";
+import "../src/Dai.sol";
 
 contract DeployScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy DAI (for local testing we'll use a mock)
-        MockERC20 dai = new MockERC20("DAI", "DAI", 18);
-        
+        // Deploy DAI
+        Dai dai = new Dai(block.chainid);
+
         // Deploy DEAL token
         DEAL deal = new DEAL(address(dai));
-        
+
         // Initialize DEAL with 1 DAI from deployer
         dai.mint(deployer, 1e18);
         dai.approve(address(deal), 1e18);
         deal.initialise();
-        
+
         // Deploy Proposals contract
         Proposals proposals = new Proposals(address(deal));
 
@@ -39,14 +39,14 @@ contract DeployScript is Script {
             '","deal":"', vm.toString(address(deal)),
             '","proposals":"', vm.toString(address(proposals)), '"}'
         );
-        
+
         // Write deployment file
         vm.writeFile("../interface/src/deployments/local.json", deploymentJson);
 
         // Copy ABIs
         vm.copyFile("out/Proposals.sol/Proposals.json", "../interface/src/deployments/Proposals.sol/Proposals.json");
         vm.copyFile("out/DEAL.sol/DEAL.json", "../interface/src/deployments/DEAL.sol/DEAL.json");
-        vm.copyFile("out/MockERC20.sol/MockERC20.json", "../interface/src/deployments/MockERC20.sol/MockERC20.json");
+        vm.copyFile("out/Dai.sol/Dai.json", "../interface/src/deployments/Dai.sol/DAI.json");
 
         console.log("DAI deployed to:", address(dai));
         console.log("DEAL deployed to:", address(deal));
