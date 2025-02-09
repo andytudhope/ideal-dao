@@ -6,8 +6,9 @@ import { useWallet } from '@/contexts/WalletContext';
 import Image from 'next/image';
 
 const navItems = [
-  { name: 'Proposals', href: '/proposals' },
+  { name: 'Get Funded', href: '/submit' },
   { name: 'Get DEAL', href: '/deal' },
+  { name: 'All Proposals', href: '/proposals' },
 ];
 
 const Navbar = () => {
