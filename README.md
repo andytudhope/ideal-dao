@@ -21,7 +21,7 @@ forge test
 
 If you'd like to run the frontend, you'll need to start a local network and deploy the contracts. 
 
-(You'll need to copy the contents of env.example to .env.local and insert your own values in order for Arweave uploads and ENS name resolution to work).
+Rename `env.example` to `.env`. Take the private key in that file and import it into your browser wallet for testing later.
 
 Run `anvil` in one terminal and, in another terminal:
 
@@ -30,6 +30,8 @@ forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545
 ```
 
 ## Interface
+
+You'll need to copy the contents of env.example to .env.local and insert your own values in order for Arweave uploads and ENS name resolution to work.
 
 Run the Nextjs web interface as below:
 
