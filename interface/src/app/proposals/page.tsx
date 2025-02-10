@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { FundingStatus } from '@/components/FundingStatus';
 import { fetchProposals, fetchProposalDetails, type ProposalData } from '@/utils/proposals';
 import { ethers } from 'ethers';
 
@@ -20,7 +21,6 @@ export default function ProposalsPage() {
       const batchSize = 5;
       const newProposals = await fetchProposals(page * batchSize, batchSize);
       
-      // Fetch details for each proposal
       const proposalsWithDetails = await Promise.all(
         newProposals.map(async (proposal) => {
           try {
@@ -63,8 +63,8 @@ export default function ProposalsPage() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        {proposals.map((proposal) => (
-          <Link 
+      {proposals.map((proposal) => (
+          <Link
             key={proposal.id}
             href={`/proposals/${proposal.id}`}
             className="block hover:shadow-lg transition-shadow"
@@ -74,8 +74,13 @@ export default function ProposalsPage() {
                 {proposal.details?.name || `Proposal ${proposal.id}`}
               </h2>
               <p className="text-sm text-gray-500 mb-2">
-                {ethers.formatEther(proposal.dealRequired)} DEAL
+                Required: {ethers.formatEther(proposal.dealRequired)} DEAL
               </p>
+              <FundingStatus 
+                proposalId={proposal.id}
+                requiredAmount={proposal.dealRequired}
+                className="my-3"
+              />
               <p className="text-sm text-gray-500 truncate">
                 {proposal.payableAddress}
               </p>

@@ -7,17 +7,16 @@ interface IERC20 {
 
 contract Proposals {
     struct Proposal {
-        uint256 dealRequired;      // Amount of DEAL tokens required
-        address payableAddress;    // Address to receive the DEAL tokens
-        string documentURI;       // IPFS/Arweave URI containing additional details
+        uint256 dealRequired;
+        uint256 dealReceived;
+        address payableAddress;
+        string documentURI;
     }
 
-    // State variables
     IERC20 public dealToken;
     uint256 public proposalCount;
     mapping(uint256 => Proposal) public proposals;
 
-    // Events
     event ProposalCreated(
         uint256 indexed proposalId,
         address indexed proposer,
@@ -29,7 +28,8 @@ contract Proposals {
     event ProposalFunded(
         uint256 indexed proposalId,
         address indexed funder,
-        uint256 amount
+        uint256 amount,
+        uint256 totalFunded
     );
 
     constructor(address _dealToken) {
@@ -42,11 +42,11 @@ contract Proposals {
         string memory _documentURI
     ) external returns (uint256) {
         require(_payableAddress != address(0), "Invalid payable address");
-
-        uint256 proposalId = proposalCount;
         
+        uint256 proposalId = proposalCount;
         proposals[proposalId] = Proposal({
             dealRequired: _dealRequired,
+            dealReceived: 0,
             payableAddress: _payableAddress,
             documentURI: _documentURI
         });
@@ -75,20 +75,27 @@ contract Proposals {
         );
         require(success, "Token transfer failed");
 
-        emit ProposalFunded(_proposalId, msg.sender, _amount);
+        proposal.dealReceived += _amount;
+
+        emit ProposalFunded(_proposalId, msg.sender, _amount, proposal.dealReceived);
     }
 
-    // View functions
     function getProposal(uint256 _proposalId) external view returns (
         uint256 dealRequired,
+        uint256 dealReceived,
         address payableAddress,
         string memory documentURI
     ) {
         Proposal storage proposal = proposals[_proposalId];
         return (
             proposal.dealRequired,
+            proposal.dealReceived,
             proposal.payableAddress,
             proposal.documentURI
         );
+    }
+
+    function getCurrentFunding(uint256 _proposalId) external view returns (uint256) {
+        return proposals[_proposalId].dealReceived;
     }
 }

@@ -77,8 +77,8 @@ const Navbar = () => {
                 <button
                   onClick={connect}
                   disabled={isConnecting}
-                  className={`bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium 
-                    ${isConnecting ? 'opacity-75 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+                  className={`bg-black text-white px-4 py-2 rounded-lg text-sm font-medium 
+                    ${isConnecting ? 'opacity-75 cursor-not-allowed' : 'hover:bg-gray-800'}`}
                 >
                   {isConnecting ? 'Connecting...' : 'Connect'}
                 </button>

@@ -1,6 +1,13 @@
 import { ethers } from 'ethers';
 import { getProposalsContract } from './contracts';
+import { getDealContract } from './dealContract';
 import { EXCLUDED_PROPOSAL_IDS } from '@/config/excludedProposals';
+
+export type FundingResult = {
+  success: boolean;
+  hash: string | null;
+  error: string | null;
+};
 
 export interface ProposalData {
   id: number;
@@ -17,6 +24,51 @@ export interface ProposalDetails {
   links: string;
   submittedBy: string;
   timestamp: string;
+}
+
+export async function fundProposal(proposalId: number, amount: string): Promise<FundingResult> {
+    try {
+      if (!window.ethereum) throw new Error('No wallet found');
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const proposalsContract = await getProposalsContract(signer);
+      const dealContract = await getDealContract(signer);
+      const amountInWei = ethers.parseUnits(amount, 18);
+
+      const approveTx = await dealContract.approve(proposalsContract.target, amountInWei);
+      await approveTx.wait();
+      
+      const tx = await proposalsContract.fundProposal(proposalId, amountInWei);
+      await tx.wait();
+  
+      return {
+        success: true,
+        hash: tx.hash,
+        error: null
+      };
+    } catch (err) {
+      console.error('Error funding proposal:', err);
+      return {
+        success: false,
+        hash: null,
+        error: err instanceof Error ? err.message : 'Failed to fund proposal'
+      };
+    }
+}
+
+export async function getProposalFunding(proposalId: number): Promise<string> {
+    try {
+      if (!window.ethereum) throw new Error('No wallet found');
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = await getProposalsContract(signer);
+      const funding = await contract.getCurrentFunding(proposalId);
+      return ethers.formatEther(funding);
+    } catch (error) {
+      console.error('Error getting proposal funding:', error);
+      return '0';
+    }
 }
 
 export async function fetchProposals(startIndex: number, count: number): Promise<ProposalData[]> {

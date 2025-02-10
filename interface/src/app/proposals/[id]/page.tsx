@@ -2,14 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { FundingSection } from '@/components/FundingSection';
+import { FundingStatus } from '@/components/FundingStatus';
 import { fetchProposals, fetchProposalDetails, type ProposalData } from '@/utils/proposals';
 import { ethers } from 'ethers';
+
 
 export default function ProposalPage() {
   const params = useParams();
   const [proposal, setProposal] = useState<ProposalData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fundingRefreshCounter, setFundingRefreshCounter] = useState(0);
 
   useEffect(() => {
     const loadProposal = async () => {
@@ -36,6 +40,10 @@ export default function ProposalPage() {
 
     loadProposal();
   }, [params.id]);
+
+  const handleFundingSuccess = () => {
+    setFundingRefreshCounter(prev => prev + 1);
+  };
 
   if (loading) return <div className="max-w-4xl mx-auto p-6">Loading...</div>;
   if (error) return <div className="max-w-4xl mx-auto p-6">Error: {error}</div>;
@@ -85,6 +93,16 @@ export default function ProposalPage() {
             <p className="font-mono">{proposal.details?.submittedBy}</p>
           </div>
         </div>
+        <FundingStatus 
+          proposalId={proposal.id}
+          requiredAmount={proposal.dealRequired}
+          className="my-6"
+          refreshTrigger={fundingRefreshCounter}
+        />
+        <FundingSection 
+            proposalId={proposal.id}
+            onFundingSuccess={handleFundingSuccess}
+        />
       </div>
     </div>
   );
