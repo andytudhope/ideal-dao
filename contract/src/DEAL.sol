@@ -11,41 +11,32 @@ import "./interfaces/IERC20Standard.sol";
 /**
  * @title  DEAL
  * @notice A simple constant product curve that mints DEAL tokens whenever
- *         anyone sends it stablecoins (USDS, USDC, or USDT), or burns DEAL tokens 
+ *         anyone sends it stablecoins (USDS, USDC, or USDT), or burns DEAL tokens
  *         and returns the chosen stablecoin.
  */
 contract DEAL is ERC20 {
     // the constant product used in the curve
     uint256 public constant k = 10000;
-    
+
     struct ReserveToken {
         address token;
         uint256 balance;
         uint8 decimals;
-        bool supportsPermit;  // true for USDS/USDC, false for USDT
+        bool supportsPermit; // true for USDS/USDC, false for USDT
     }
-    
+
     mapping(address => ReserveToken) public reserves;
     address[] public supportedTokens;
-    uint256 public totalReserveBalance;  // Combined balance in 18 decimals
+    uint256 public totalReserveBalance; // Combined balance in 18 decimals
     bool initialised;
 
-    bytes32 public constant PERMIT_TYPEHASH = 
+    bytes32 public constant PERMIT_TYPEHASH =
         keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 
-    event DealMinted(
-        address indexed learner,
-        uint256 amountMinted,
-        uint256 amountDeposited,
-        address tokenDeposited
-    );
-    
+    event DealMinted(address indexed learner, uint256 amountMinted, uint256 amountDeposited, address tokenDeposited);
+
     event DealBurned(
-        address indexed learner,
-        uint256 amountBurned,
-        uint256 amountReturned,
-        address tokenReturned,
-        uint256 e
+        address indexed learner, uint256 amountBurned, uint256 amountReturned, address tokenReturned, uint256 e
     );
 
     constructor(address _usds, address _usdc, address _usdt) ERC20("DEAL", "DEAL", 18) {
@@ -55,12 +46,7 @@ contract DEAL is ERC20 {
     }
 
     function _addReserveToken(address token, uint8 decimals, bool hasPermit) internal {
-        reserves[token] = ReserveToken({
-            token: token,
-            balance: 0,
-            decimals: decimals,
-            supportsPermit: hasPermit
-        });
+        reserves[token] = ReserveToken({token: token, balance: 0, decimals: decimals, supportsPermit: hasPermit});
         supportedTokens.push(token);
     }
 
@@ -69,7 +55,7 @@ contract DEAL is ERC20 {
      */
     function _toE18(uint256 amount, uint8 decimals) internal pure returns (uint256) {
         if (decimals == 18) return amount;
-        return amount * 10**(18 - decimals);
+        return amount * 10 ** (18 - decimals);
     }
 
     /**
@@ -77,7 +63,7 @@ contract DEAL is ERC20 {
      */
     function _fromE18(uint256 amount, uint8 decimals) internal pure returns (uint256) {
         if (decimals == 18) return amount;
-        return amount / 10**(18 - decimals);
+        return amount / 10 ** (18 - decimals);
     }
 
     /**
@@ -86,13 +72,8 @@ contract DEAL is ERC20 {
      */
     function initialise() external {
         require(!initialised, "initialised");
-        address usdsAddress = supportedTokens[0];  // USDS is first token
-        SafeTransferLib.safeTransferFrom(
-            ERC20(usdsAddress),
-            msg.sender,
-            address(this),
-            1e18
-        );
+        address usdsAddress = supportedTokens[0]; // USDS is first token
+        SafeTransferLib.safeTransferFrom(ERC20(usdsAddress), msg.sender, address(this), 1e18);
         reserves[usdsAddress].balance += 1e18;
         totalReserveBalance += 1e18;
         initialised = true;
@@ -102,24 +83,9 @@ contract DEAL is ERC20 {
     /**
      * @notice handles DEAL mint with an EIP-2612 permit for USDS/USDC
      */
-    function permitAndMint(
-        address token,
-        uint256 amount,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external {
+    function permitAndMint(address token, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
         require(reserves[token].supportsPermit, "no permit support");
-        IERC20Permit(token).permit(
-            msg.sender,
-            address(this),
-            amount,
-            deadline,
-            v,
-            r,
-            s
-        );
+        IERC20Permit(token).permit(msg.sender, address(this), amount, deadline, v, r, s);
         mint(token, amount);
     }
 
@@ -131,16 +97,16 @@ contract DEAL is ERC20 {
     function mint(address token, uint256 amount) public {
         require(initialised, "!initialised");
         require(reserves[token].token != address(0), "unsupported token");
-        
+
         SafeTransferLib.safeTransferFrom(ERC20(token), msg.sender, address(this), amount);
-        
+
         uint256 amountE18 = _toE18(amount, reserves[token].decimals);
         uint256 ln = doLn((((totalReserveBalance + amountE18) * 1e18)) / totalReserveBalance);
         uint256 amountToMint = k * ln;
-        
+
         reserves[token].balance += amount;
         totalReserveBalance += amountE18;
-        
+
         _mint(msg.sender, amountToMint);
         emit DealMinted(msg.sender, amountToMint, amount, token);
     }
@@ -153,18 +119,18 @@ contract DEAL is ERC20 {
     function burn(address token, uint256 burnAmount) public {
         require(initialised, "!initialised");
         require(reserves[token].token != address(0), "unsupported token");
-        
+
         uint256 e = e_calc(burnAmount);
         uint256 amountToBurnE18 = totalReserveBalance - (totalReserveBalance * 1e18) / e;
-        
+
         // Convert to token decimals and check if we have enough
         uint256 tokenAmount = _fromE18(amountToBurnE18, reserves[token].decimals);
         require(reserves[token].balance >= tokenAmount, "insufficient liquidity");
-        
+
         _burn(msg.sender, burnAmount);
         totalReserveBalance -= amountToBurnE18;
         reserves[token].balance -= tokenAmount;
-        
+
         SafeTransferLib.safeTransfer(ERC20(token), msg.sender, tokenAmount);
         emit DealBurned(msg.sender, burnAmount, tokenAmount, token, e);
     }
@@ -209,11 +175,7 @@ contract DEAL is ERC20 {
      * @param  token        Address of the stablecoin to receive
      * @return tokenAmount  Amount of tokens that would be received (in token's native decimals)
      */
-    function getPredictedBurn(address token, uint256 burnAmount)
-        external
-        view
-        returns (uint256 tokenAmount)
-    {
+    function getPredictedBurn(address token, uint256 burnAmount) external view returns (uint256 tokenAmount) {
         uint256 e = e_calc(burnAmount);
         uint256 amountToBurnE18 = totalReserveBalance - (totalReserveBalance * 1e18) / e;
         tokenAmount = _fromE18(amountToBurnE18, reserves[token].decimals);
@@ -225,15 +187,9 @@ contract DEAL is ERC20 {
      * @param  amount       Amount of tokens to deposit (in token's native decimals)
      * @return amountToMint   Amount of DEAL that would be minted
      */
-    function getMintableForReserveAmount(address token, uint256 amount)
-        external
-        view
-        returns (uint256 amountToMint)
-    {
+    function getMintableForReserveAmount(address token, uint256 amount) external view returns (uint256 amountToMint) {
         uint256 amountE18 = _toE18(amount, reserves[token].decimals);
-        uint256 ln = doLn(
-            (((totalReserveBalance + amountE18) * 1e18)) / totalReserveBalance
-        );
+        uint256 ln = doLn((((totalReserveBalance + amountE18) * 1e18)) / totalReserveBalance);
         amountToMint = k * ln;
     }
 }
