@@ -59,9 +59,7 @@ library PRBMathUD60x18 {
         unchecked {
             // The last operand checks if both x and y are odd and if that is the case, we add 1 to the result. We need
             // to do this because if both numbers are odd, the 0.5 remainder gets truncated twice.
-            uint256 rValue = (x.value >> 1) +
-                (y.value >> 1) +
-                (x.value & y.value & 1);
+            uint256 rValue = (x.value >> 1) + (y.value >> 1) + (x.value & y.value & 1);
             result = PRBMath.UD60x18({value: rValue});
         }
     }
@@ -76,11 +74,7 @@ library PRBMathUD60x18 {
     ///
     /// @param x The unsigned 60.18-decimal fixed-point number to ceil.
     /// @param result The least integer greater than or equal to x, as an unsigned 60.18-decimal fixed-point number.
-    function ceil(PRBMath.UD60x18 memory x)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
+    function ceil(PRBMath.UD60x18 memory x) internal pure returns (PRBMath.UD60x18 memory result) {
         uint256 xValue = x.value;
         require(xValue <= MAX_WHOLE_UD60x18);
 
@@ -113,9 +107,7 @@ library PRBMathUD60x18 {
         pure
         returns (PRBMath.UD60x18 memory result)
     {
-        result = PRBMath.UD60x18({
-            value: PRBMath.mulDiv(x.value, SCALE, y.value)
-        });
+        result = PRBMath.UD60x18({value: PRBMath.mulDiv(x.value, SCALE, y.value)});
     }
 
     /// @notice Returns Euler's number as an unsigned 60.18-decimal fixed-point number.
@@ -134,20 +126,14 @@ library PRBMathUD60x18 {
     ///
     /// @param x The exponent as an unsigned 60.18-decimal fixed-point number.
     /// @return result The result as an unsigned 60.18-decimal fixed-point number.
-    function exp(PRBMath.UD60x18 memory x)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
+    function exp(PRBMath.UD60x18 memory x) internal pure returns (PRBMath.UD60x18 memory result) {
         // Without this check, the value passed to "exp2" would be greater than 128e18.
         require(x.value < 88722839111672999628);
 
         // Do the fixed-point multiplication inline to save gas.
         unchecked {
             uint256 doubleScaleProduct = x.value * LOG2_E;
-            PRBMath.UD60x18 memory exponent = PRBMath.UD60x18({
-                value: (doubleScaleProduct + HALF_SCALE) / SCALE
-            });
+            PRBMath.UD60x18 memory exponent = PRBMath.UD60x18({value: (doubleScaleProduct + HALF_SCALE) / SCALE});
             result = exp2(exponent);
         }
     }
@@ -162,11 +148,7 @@ library PRBMathUD60x18 {
     ///
     /// @param x The exponent as an unsigned 60.18-decimal fixed-point number.
     /// @return result The result as an unsigned 60.18-decimal fixed-point number.
-    function exp2(PRBMath.UD60x18 memory x)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
+    function exp2(PRBMath.UD60x18 memory x) internal pure returns (PRBMath.UD60x18 memory result) {
         // 2**128 doesn't fit within the 128.128-bit format used internally in this function.
         require(x.value < 128e18);
 
@@ -184,11 +166,7 @@ library PRBMathUD60x18 {
     /// See https://en.wikipedia.org/wiki/Floor_and_ceiling_functions.
     /// @param x The unsigned 60.18-decimal fixed-point number to floor.
     /// @param result The greatest integer less than or equal to x, as an unsigned 60.18-decimal fixed-point number.
-    function floor(PRBMath.UD60x18 memory x)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
+    function floor(PRBMath.UD60x18 memory x) internal pure returns (PRBMath.UD60x18 memory result) {
         uint256 xValue = x.value;
         uint256 rValue;
         assembly {
@@ -205,11 +183,7 @@ library PRBMathUD60x18 {
     /// @dev Based on the odd function definition https://en.wikipedia.org/wiki/Fractional_part.
     /// @param x The unsigned 60.18-decimal fixed-point number to get the fractional part of.
     /// @param result The fractional part of x as an unsigned 60.18-decimal fixed-point number.
-    function frac(PRBMath.UD60x18 memory x)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
+    function frac(PRBMath.UD60x18 memory x) internal pure returns (PRBMath.UD60x18 memory result) {
         uint256 xValue = x.value;
         uint256 rValue;
         assembly {
@@ -225,11 +199,7 @@ library PRBMathUD60x18 {
     ///
     /// @param x The basic integer to convert.
     /// @param result The same number in unsigned 60.18-decimal fixed-point representation.
-    function fromUint(uint256 x)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
+    function fromUint(uint256 x) internal pure returns (PRBMath.UD60x18 memory result) {
         unchecked {
             require(x <= MAX_UD60x18 / SCALE);
             result = PRBMath.UD60x18({value: x * SCALE});
@@ -271,11 +241,7 @@ library PRBMathUD60x18 {
     ///
     /// @param x The unsigned 60.18-decimal fixed-point number for which to calculate the inverse.
     /// @return result The inverse as an unsigned 60.18-decimal fixed-point number.
-    function inv(PRBMath.UD60x18 memory x)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
+    function inv(PRBMath.UD60x18 memory x) internal pure returns (PRBMath.UD60x18 memory result) {
         unchecked {
             // 1e36 is SCALE * SCALE.
             result = PRBMath.UD60x18({value: 1e36 / x.value});
@@ -295,11 +261,7 @@ library PRBMathUD60x18 {
     ///
     /// @param x The unsigned 60.18-decimal fixed-point number for which to calculate the natural logarithm.
     /// @return result The natural logarithm as an unsigned 60.18-decimal fixed-point number.
-    function ln(PRBMath.UD60x18 memory x)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
+    function ln(PRBMath.UD60x18 memory x) internal pure returns (PRBMath.UD60x18 memory result) {
         // Do the fixed-point multiplication inline to save gas. This is overflow-safe because the maximum value that log2(x)
         // can return is 196205294292027477728.
         unchecked {
@@ -321,11 +283,7 @@ library PRBMathUD60x18 {
     ///
     /// @param x The unsigned 60.18-decimal fixed-point number for which to calculate the common logarithm.
     /// @return result The common logarithm as an unsigned 60.18-decimal fixed-point number.
-    function log10(PRBMath.UD60x18 memory x)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
+    function log10(PRBMath.UD60x18 memory x) internal pure returns (PRBMath.UD60x18 memory result) {
         uint256 xValue = x.value;
         require(xValue >= SCALE);
 
@@ -410,13 +368,19 @@ library PRBMathUD60x18 {
             case 100000000000000000000000000000000000000000000000000000000000000000000000 { rValue := mul(SCALE, 53) }
             case 1000000000000000000000000000000000000000000000000000000000000000000000000 { rValue := mul(SCALE, 54) }
             case 10000000000000000000000000000000000000000000000000000000000000000000000000 { rValue := mul(SCALE, 55) }
-            case 100000000000000000000000000000000000000000000000000000000000000000000000000 { rValue := mul(SCALE, 56) }
-            case 1000000000000000000000000000000000000000000000000000000000000000000000000000 { rValue := mul(SCALE, 57) }
-            case 10000000000000000000000000000000000000000000000000000000000000000000000000000 { rValue := mul(SCALE, 58) }
-            case 100000000000000000000000000000000000000000000000000000000000000000000000000000 { rValue := mul(SCALE, 59) }
-            default {
-                rValue := MAX_UD60x18
+            case 100000000000000000000000000000000000000000000000000000000000000000000000000 {
+                rValue := mul(SCALE, 56)
             }
+            case 1000000000000000000000000000000000000000000000000000000000000000000000000000 {
+                rValue := mul(SCALE, 57)
+            }
+            case 10000000000000000000000000000000000000000000000000000000000000000000000000000 {
+                rValue := mul(SCALE, 58)
+            }
+            case 100000000000000000000000000000000000000000000000000000000000000000000000000000 {
+                rValue := mul(SCALE, 59)
+            }
+            default { rValue := MAX_UD60x18 }
         }
 
         if (rValue != MAX_UD60x18) {
@@ -443,11 +407,7 @@ library PRBMathUD60x18 {
     ///
     /// @param x The unsigned 60.18-decimal fixed-point number for which to calculate the binary logarithm.
     /// @return result The binary logarithm as an unsigned 60.18-decimal fixed-point number.
-    function log2(PRBMath.UD60x18 memory x)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
+    function log2(PRBMath.UD60x18 memory x) internal pure returns (PRBMath.UD60x18 memory result) {
         require(x.value >= SCALE);
         unchecked {
             // Calculate the integer part of the logarithm and add it to the result and finally calculate y = x * 2^(-n).
@@ -494,9 +454,7 @@ library PRBMathUD60x18 {
         pure
         returns (PRBMath.UD60x18 memory result)
     {
-        result = PRBMath.UD60x18({
-            value: PRBMath.mulDivFixedPoint(x.value, y.value)
-        });
+        result = PRBMath.UD60x18({value: PRBMath.mulDivFixedPoint(x.value, y.value)});
     }
 
     /// @notice Returns PI as an unsigned 60.18-decimal fixed-point number.
@@ -545,11 +503,7 @@ library PRBMathUD60x18 {
     /// @param x The base as an unsigned 60.18-decimal fixed-point number.
     /// @param y The exponent as an uint256.
     /// @return result The result as an unsigned 60.18-decimal fixed-point number.
-    function powu(PRBMath.UD60x18 memory x, uint256 y)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
+    function powu(PRBMath.UD60x18 memory x, uint256 y) internal pure returns (PRBMath.UD60x18 memory result) {
         // Calculate the first iteration of the loop in advance.
         uint256 xValue = x.value;
         uint256 rValue = y & 1 > 0 ? xValue : SCALE;
@@ -582,15 +536,8 @@ library PRBMathUD60x18 {
     ///
     /// @param x The unsigned 60.18-decimal fixed-point number for which to calculate the square root.
     /// @return result The result as an unsigned 60.18-decimal fixed-point .
-    function sqrt(PRBMath.UD60x18 memory x)
-        internal
-        pure
-        returns (PRBMath.UD60x18 memory result)
-    {
-        require(
-            x.value <
-                115792089237316195423570985008687907853269984665640564039458
-        );
+    function sqrt(PRBMath.UD60x18 memory x) internal pure returns (PRBMath.UD60x18 memory result) {
+        require(x.value < 115792089237316195423570985008687907853269984665640564039458);
         unchecked {
             // Multiply x by the SCALE to account for the factor of SCALE that is picked up when multiplying two unsigned
             // 60.18-decimal fixed-point numbers together (in this case, those two numbers are both the square root).
@@ -617,11 +564,7 @@ library PRBMathUD60x18 {
     /// @notice Converts a unsigned 60.18-decimal fixed-point number to basic integer form, rounding down in the process.
     /// @param x The unsigned 60.18-decimal fixed-point number to convert.
     /// @return result The same number in basic integer form.
-    function toUint(PRBMath.UD60x18 memory x)
-        internal
-        pure
-        returns (uint256 result)
-    {
+    function toUint(PRBMath.UD60x18 memory x) internal pure returns (uint256 result) {
         unchecked {
             result = x.value / SCALE;
         }
