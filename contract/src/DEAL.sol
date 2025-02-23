@@ -101,8 +101,9 @@ contract DEAL is ERC20 {
         SafeTransferLib.safeTransferFrom(ERC20(token), msg.sender, address(this), amount);
 
         uint256 amountE18 = _toE18(amount, reserves[token].decimals);
-        uint256 ln = doLn((((totalReserveBalance + amountE18) * 1e18)) / totalReserveBalance);
-        uint256 amountToMint = k * ln;
+        PRBMath.UD60x18 memory natural_log = doLn((((totalReserveBalance + amount) * 1e18)) / totalReserveBalance);
+        PRBMath.UD60x18 memory amountToMintUD = doMul(natural_log, k);
+        uint256 amountToMint = PRBMathUD60x18.toUint(amountToMintUD);
 
         reserves[token].balance += amount;
         totalReserveBalance += amountE18;
@@ -141,10 +142,15 @@ contract DEAL is ERC20 {
         result = PRBMathUD60x18.exp(xud).value;
     }
 
-    function doLn(uint256 x) internal pure returns (uint256 result) {
-        PRBMath.UD60x18 memory xud = PRBMath.UD60x18({value: x});
-        result = PRBMathUD60x18.ln(xud).value;
+    function doLn(uint256 x) internal pure returns (PRBMath.UD60x18 memory result) {
+        PRBMath.UD60x18 memory xUD = PRBMathUD60x18.fromUint(x);
+        result = PRBMathUD60x18.ln(xUD);
     }
+
+    function doMul(PRBMath.UD60x18 memory x, uint256 y) internal pure returns (PRBMath.UD60x18 memory result) {
+        PRBMath.UD60x18 memory yUD = PRBMathUD60x18.fromUint(y);
+        result = PRBMathUD60x18.mul(x, yUD);
+    }  
 
     /**
      * @notice Get all supported token addresses
