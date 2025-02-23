@@ -28,12 +28,7 @@ library SafeTransferLib {
                            ERC20 OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
-    function safeTransferFrom(
-        ERC20 token,
-        address from,
-        address to,
-        uint256 amount
-    ) internal {
+    function safeTransferFrom(ERC20 token, address from, address to, uint256 amount) internal {
         bool callStatus;
 
         assembly {
@@ -54,11 +49,7 @@ library SafeTransferLib {
         require(didLastOptionalReturnCallSucceed(callStatus), "TRANSFER_FROM_FAILED");
     }
 
-    function safeTransfer(
-        ERC20 token,
-        address to,
-        uint256 amount
-    ) internal {
+    function safeTransfer(ERC20 token, address to, uint256 amount) internal {
         bool callStatus;
 
         assembly {
@@ -78,11 +69,7 @@ library SafeTransferLib {
         require(didLastOptionalReturnCallSucceed(callStatus), "TRANSFER_FAILED");
     }
 
-    function safeApprove(
-        ERC20 token,
-        address to,
-        uint256 amount
-    ) internal {
+    function safeApprove(ERC20 token, address to, uint256 amount) internal {
         bool callStatus;
 
         assembly {
