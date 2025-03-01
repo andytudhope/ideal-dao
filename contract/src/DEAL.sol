@@ -121,7 +121,8 @@ contract DEAL is ERC20 {
         require(initialised, "!initialised");
         require(reserves[token].token != address(0), "unsupported token");
 
-        uint256 e = e_calc(burnAmount);
+        PRBMath.UD60x18 memory eUD = doExp(burnAmount);
+        uint256 e = PRBMathUD60x18.toUint(eUD);
         uint256 amountToBurnE18 = totalReserveBalance - (totalReserveBalance * 1e18) / e;
 
         // Convert to token decimals and check if we have enough
@@ -137,9 +138,11 @@ contract DEAL is ERC20 {
     }
 
     // Original helper functions remain unchanged
-    function e_calc(uint256 x) internal pure returns (uint256 result) {
-        PRBMath.UD60x18 memory xud = PRBMath.UD60x18({value: x / k});
-        result = PRBMathUD60x18.exp(xud).value;
+    function doExp(uint256 x) internal pure returns (PRBMath.UD60x18 memory result) {
+        PRBMath.UD60x18 memory xUD = PRBMathUD60x18.fromUint(x);
+        PRBMath.UD60x18 memory kUD = PRBMathUD60x18.fromUint(k);
+        PRBMath.UD60x18 memory divInUD = PRBMathUD60x18.div(xUD, kUD);
+        result = PRBMathUD60x18.exp(divInUD);
     }
 
     function doLn(uint256 x) internal pure returns (PRBMath.UD60x18 memory result) {
@@ -182,7 +185,8 @@ contract DEAL is ERC20 {
      * @return tokenAmount  Amount of tokens that would be received (in token's native decimals)
      */
     function getPredictedBurn(address token, uint256 burnAmount) external view returns (uint256 tokenAmount) {
-        uint256 e = e_calc(burnAmount);
+        PRBMath.UD60x18 memory eUD = doExp(burnAmount);
+        uint256 e = PRBMathUD60x18.toUint(eUD);
         uint256 amountToBurnE18 = totalReserveBalance - (totalReserveBalance * 1e18) / e;
         tokenAmount = _fromE18(amountToBurnE18, reserves[token].decimals);
     }
@@ -195,7 +199,8 @@ contract DEAL is ERC20 {
      */
     function getMintableForReserveAmount(address token, uint256 amount) external view returns (uint256 amountToMint) {
         uint256 amountE18 = _toE18(amount, reserves[token].decimals);
-        uint256 ln = doLn((((totalReserveBalance + amountE18) * 1e18)) / totalReserveBalance);
-        amountToMint = k * ln;
+        PRBMath.UD60x18 memory natural_log = doLn((((totalReserveBalance + amountE18) * 1e18)) / totalReserveBalance);
+        PRBMath.UD60x18 memory amountToMintUD = doMul(natural_log, k);
+        amountToMint = PRBMathUD60x18.toUint(amountToMintUD);
     }
 }
