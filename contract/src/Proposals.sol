@@ -25,24 +25,18 @@ contract Proposals {
         string documentURI
     );
 
-    event ProposalFunded(
-        uint256 indexed proposalId,
-        address indexed funder,
-        uint256 amount,
-        uint256 totalFunded
-    );
+    event ProposalFunded(uint256 indexed proposalId, address indexed funder, uint256 amount, uint256 totalFunded);
 
     constructor(address _dealToken) {
         dealToken = IERC20(_dealToken);
     }
 
-    function createProposal(
-        uint256 _dealRequired,
-        address _payableAddress,
-        string memory _documentURI
-    ) external returns (uint256) {
+    function createProposal(uint256 _dealRequired, address _payableAddress, string memory _documentURI)
+        external
+        returns (uint256)
+    {
         require(_payableAddress != address(0), "Invalid payable address");
-        
+
         uint256 proposalId = proposalCount;
         proposals[proposalId] = Proposal({
             dealRequired: _dealRequired,
@@ -51,13 +45,7 @@ contract Proposals {
             documentURI: _documentURI
         });
 
-        emit ProposalCreated(
-            proposalId,
-            msg.sender,
-            _dealRequired,
-            _payableAddress,
-            _documentURI
-        );
+        emit ProposalCreated(proposalId, msg.sender, _dealRequired, _payableAddress, _documentURI);
 
         proposalCount++;
         return proposalId;
@@ -68,11 +56,7 @@ contract Proposals {
         require(_amount > 0, "Amount must be greater than 0");
 
         // Transfer DEAL tokens directly from sender to proposal address
-        bool success = dealToken.transferFrom(
-            msg.sender,
-            proposal.payableAddress,
-            _amount
-        );
+        bool success = dealToken.transferFrom(msg.sender, proposal.payableAddress, _amount);
         require(success, "Token transfer failed");
 
         proposal.dealReceived += _amount;
@@ -80,19 +64,13 @@ contract Proposals {
         emit ProposalFunded(_proposalId, msg.sender, _amount, proposal.dealReceived);
     }
 
-    function getProposal(uint256 _proposalId) external view returns (
-        uint256 dealRequired,
-        uint256 dealReceived,
-        address payableAddress,
-        string memory documentURI
-    ) {
+    function getProposal(uint256 _proposalId)
+        external
+        view
+        returns (uint256 dealRequired, uint256 dealReceived, address payableAddress, string memory documentURI)
+    {
         Proposal storage proposal = proposals[_proposalId];
-        return (
-            proposal.dealRequired,
-            proposal.dealReceived,
-            proposal.payableAddress,
-            proposal.documentURI
-        );
+        return (proposal.dealRequired, proposal.dealReceived, proposal.payableAddress, proposal.documentURI);
     }
 
     function getCurrentFunding(uint256 _proposalId) external view returns (uint256) {
