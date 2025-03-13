@@ -16,7 +16,9 @@ import "./interfaces/IERC20Standard.sol";
  */
 contract DEAL is ERC20 {
     // the constant product used in the curve
-    uint256 public constant k = 10000;
+    uint256 public constant K = 10000;
+
+    uint256 public constant SCALING_FACTOR = 1e18;
 
     struct ReserveToken {
         address token;
@@ -36,7 +38,7 @@ contract DEAL is ERC20 {
     event DealMinted(address indexed learner, uint256 amountMinted, uint256 amountDeposited, address tokenDeposited);
 
     event DealBurned(
-        address indexed learner, uint256 amountBurned, uint256 amountReturned, address tokenReturned, uint256 e
+        address indexed learner, uint256 amountBurned, uint256 amountReturned, address tokenReturned
     );
 
     constructor(address _usds, address _usdc, address _usdt) ERC20("DEAL", "DEAL", 18) {
@@ -101,8 +103,7 @@ contract DEAL is ERC20 {
         SafeTransferLib.safeTransferFrom(ERC20(token), msg.sender, address(this), amount);
 
         uint256 amountE18 = _toE18(amount, reserves[token].decimals);
-        uint256 ln = doLn((((totalReserveBalance + amountE18) * 1e18)) / totalReserveBalance);
-        uint256 amountToMint = k * ln;
+        uint256 amountToMint = computeMintAmount(amountE18);
 
         reserves[token].balance += amount;
         totalReserveBalance += amountE18;
@@ -120,8 +121,7 @@ contract DEAL is ERC20 {
         require(initialised, "!initialised");
         require(reserves[token].token != address(0), "unsupported token");
 
-        uint256 e = e_calc(burnAmount);
-        uint256 amountToBurnE18 = totalReserveBalance - (totalReserveBalance * 1e18) / e;
+        uint256 amountToBurnE18 = computeBurnAmount(burnAmount);
 
         // Convert to token decimals and check if we have enough
         uint256 tokenAmount = _fromE18(amountToBurnE18, reserves[token].decimals);
@@ -132,19 +132,35 @@ contract DEAL is ERC20 {
         reserves[token].balance -= tokenAmount;
 
         SafeTransferLib.safeTransfer(ERC20(token), msg.sender, tokenAmount);
-        emit DealBurned(msg.sender, burnAmount, tokenAmount, token, e);
+        emit DealBurned(msg.sender, burnAmount, tokenAmount, token);
     }
 
-    // Original helper functions remain unchanged
-    function e_calc(uint256 x) internal pure returns (uint256 result) {
-        PRBMath.UD60x18 memory xud = PRBMath.UD60x18({value: x / k});
-        result = PRBMathUD60x18.exp(xud).value;
+    function computeBurnAmount(uint256 burnAmount) view internal returns (uint256 result){
+        PRBMath.UD60x18 memory kUD = PRBMathUD60x18.fromUint(K); // k
+        PRBMath.UD60x18 memory burnAmountUD = PRBMathUD60x18.fromUint(burnAmount); // T
+        PRBMath.UD60x18 memory trUD = PRBMathUD60x18.fromUint(totalReserveBalance);
+        PRBMath.UD60x18 memory scalingFactorUD = PRBMathUD60x18.fromUint(SCALING_FACTOR);
+        PRBMath.UD60x18 memory rScalingFactorUD = PRBMathUD60x18.mul(scalingFactorUD, trUD); // R * (SCALING_FACTOR)
+        PRBMath.UD60x18 memory xUD = PRBMathUD60x18.div(rScalingFactorUD, PRBMathUD60x18.exp(PRBMathUD60x18.div(burnAmountUD, kUD))); // R * (SCALING_FACTOR) / e^{T/k}
+        PRBMath.UD60x18 memory resultUD = PRBMathUD60x18.sub(trUD, xUD); // (R - R/e^{T/k}) 
+        result = PRBMathUD60x18.toUint(resultUD); 
     }
 
-    function doLn(uint256 x) internal pure returns (uint256 result) {
-        PRBMath.UD60x18 memory xud = PRBMath.UD60x18({value: x});
-        result = PRBMathUD60x18.ln(xud).value;
+    function computeMintAmount(uint256 mintAmount) view internal returns (uint256 result){
+        PRBMath.UD60x18 memory natural_log = doLn((((totalReserveBalance + mintAmount) * SCALING_FACTOR)) / totalReserveBalance);
+        PRBMath.UD60x18 memory amountToMintUD = doMul(natural_log, K);
+        result = PRBMathUD60x18.toUint(amountToMintUD);
     }
+
+    function doLn(uint256 x) internal pure returns (PRBMath.UD60x18 memory result) {
+        PRBMath.UD60x18 memory xUD = PRBMathUD60x18.fromUint(x);
+        result = PRBMathUD60x18.ln(xUD);
+    }
+
+    function doMul(PRBMath.UD60x18 memory x, uint256 y) internal pure returns (PRBMath.UD60x18 memory result) {
+        PRBMath.UD60x18 memory yUD = PRBMathUD60x18.fromUint(y);
+        result = PRBMathUD60x18.mul(x, yUD);
+    }  
 
     /**
      * @notice Get all supported token addresses
@@ -176,8 +192,7 @@ contract DEAL is ERC20 {
      * @return tokenAmount  Amount of tokens that would be received (in token's native decimals)
      */
     function getPredictedBurn(address token, uint256 burnAmount) external view returns (uint256 tokenAmount) {
-        uint256 e = e_calc(burnAmount);
-        uint256 amountToBurnE18 = totalReserveBalance - (totalReserveBalance * 1e18) / e;
+        uint256 amountToBurnE18 = computeBurnAmount(burnAmount);
         tokenAmount = _fromE18(amountToBurnE18, reserves[token].decimals);
     }
 
@@ -189,7 +204,8 @@ contract DEAL is ERC20 {
      */
     function getMintableForReserveAmount(address token, uint256 amount) external view returns (uint256 amountToMint) {
         uint256 amountE18 = _toE18(amount, reserves[token].decimals);
-        uint256 ln = doLn((((totalReserveBalance + amountE18) * 1e18)) / totalReserveBalance);
-        amountToMint = k * ln;
+        PRBMath.UD60x18 memory natural_log = doLn((((totalReserveBalance + amountE18) * SCALING_FACTOR)) / totalReserveBalance);
+        PRBMath.UD60x18 memory amountToMintUD = doMul(natural_log, K);
+        amountToMint = PRBMathUD60x18.toUint(amountToMintUD);
     }
 }
