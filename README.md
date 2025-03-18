@@ -19,7 +19,7 @@ forge install --no-git foundry-rs/forge-std
 forge test
 ```
 
-If you'd like to run the frontend, you'll need to start a local network and deploy the contracts. 
+If you'd like to run the frontend, you'll need to start a local network and deploy the contracts.
 
 Rename `env.example` to `.env`. Take the private key in that file and import it into your browser wallet for testing later.
 
@@ -40,3 +40,7 @@ npm run dev
 ```
 
 Enjoy a DAO that allocates capital in an optimal manner without any governance.
+
+## Price Curve
+
+Checkout this [notebook](https://github.com/Godspower-Eze/notes-on-the-mathematics-of-finance/blob/main/Ideal%20DAO.ipynb) for understanding how the price curve works.
